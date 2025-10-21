@@ -5,7 +5,12 @@ const Connections = () => {
   const [connections, setConnections] = useState([]);
 
   useEffect(() => {
-    fetch('/api/connections')
+    const token = localStorage.getItem('token');
+    fetch('http://localhost:8000/api/connections', {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    })
       .then((res) => res.json())
       .then((data) => setConnections(data));
   }, []);

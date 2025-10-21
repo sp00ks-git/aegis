@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 const Login = ({ setAuth }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const navigate = useNavigate();
 
   useEffect(() => {
     const startTime = Date.now();
@@ -46,10 +48,26 @@ const Login = ({ setAuth }) => {
     };
   }, []);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (username === 'sp00ks' && password === 'Th3devilisn3ar@@*&') {
-      setAuth(true);
+    try {
+      const response = await fetch('http://localhost:8000/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: `username=${username}&password=${password}`,
+      });
+      console.log('response', response);
+      if (response.ok) {
+        const data = await response.json();
+        console.log('data', data);
+        localStorage.setItem('token', data.access_token);
+        setAuth(true);
+        navigate('/connections');
+      } else {
+        console.log('response not ok');
+      }
+    } catch (error) {
+      console.log('error', error);
     }
   };
 

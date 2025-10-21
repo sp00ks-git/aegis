@@ -19,6 +19,14 @@ const CameraMic = () => {
     };
 
     getMedia();
+
+    // Example of how to include the bearer token in an API request
+    const token = localStorage.getItem('token');
+    fetch('http://localhost:8000/api/camera-mic', {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
   }, []);
 
   return (
