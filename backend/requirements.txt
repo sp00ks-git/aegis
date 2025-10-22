@@ -2,10 +2,12 @@ fastapi
 uvicorn
 python-multipart
 itsdangerous
-passlib[bcrypt]
+passlib
+bcrypt==3.2.2
 python-jose[cryptography]
 sqlalchemy
 requests
 selenium
 webdriver-manager
 beautifulsoup4
+validators

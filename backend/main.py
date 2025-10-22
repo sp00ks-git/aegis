@@ -8,8 +8,10 @@ from selenium.webdriver.common.by import By
 import validators
 import datetime
 
-from backend import auth, database, schemas
-from backend.database import SessionLocal, engine
+import auth
+import database
+import schemas
+from database import SessionLocal, engine
 
 database.Base.metadata.create_all(bind=engine)
 
@@ -108,7 +110,7 @@ def get_metadata(
     new_metadata = database.Metadata(
         filename=file.filename,
         content_type=file.content_type,
-        metadata={"Make": "Apple", "Model": "iPhone 12"},
+        exif_data={"Make": "Apple", "Model": "iPhone 12"},
     )
     db.add(new_metadata)
     db.commit()
