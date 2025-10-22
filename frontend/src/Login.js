@@ -10,7 +10,7 @@ const Login = ({ setAuth }) => {
     const startTime = Date.now();
 
     const logConnection = (location, duration) => {
-      fetch('/api/connections', {
+      fetch('http://localhost:8000/api/connections', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

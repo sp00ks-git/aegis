@@ -78,3 +78,16 @@ def get_connections():
             "duration": 20,
         },
     ]
+
+from fastapi import File, UploadFile
+
+@app.post("/api/metadata")
+async def get_metadata(file: UploadFile = File(...)):
+    return {
+        "filename": file.filename,
+        "content_type": file.content_type,
+        "mock_metadata": {
+            "Make": "Apple",
+            "Model": "iPhone 12",
+        },
+    }

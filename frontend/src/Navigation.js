@@ -19,6 +19,9 @@ const Navigation = () => {
           <li>
             <Link to="/camera-mic">Camera and Mic</Link>
           </li>
+          <li>
+            <Link to="/metadata">Metadata</Link>
+          </li>
         </ul>
       </nav>
     </>
