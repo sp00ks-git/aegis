@@ -22,6 +22,18 @@ const Navigation = () => {
           <li>
             <Link to="/metadata">Metadata</Link>
           </li>
+          <li>
+            <Link to="/pastebin">Pastebin</Link>
+          </li>
+          <li>
+            <Link to="/web-analyzer">Web Page Analyzer</Link>
+          </li>
+          <li>
+            <Link to="/threat-attempts">Threat Attempts</Link>
+          </li>
+          <li>
+            <Link to="/map">Map</Link>
+          </li>
         </ul>
       </nav>
     </>

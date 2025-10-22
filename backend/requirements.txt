@@ -1,0 +1,12 @@
+fastapi
+uvicorn
+python-multipart
+itsdangerous
+passlib[bcrypt]
+python-jose[cryptography]
+sqlalchemy
+psycopg2-binary
+requests
+selenium
+webdriver-manager
+beautifulsoup4

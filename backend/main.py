@@ -1,7 +1,17 @@
-from fastapi import FastAPI, Request
-from pydantic import BaseModel
-import datetime
+from fastapi import Depends, FastAPI, HTTPException, status, File, UploadFile, Request
+from fastapi.security import OAuth2PasswordRequestForm
+from sqlalchemy.orm import Session
 from fastapi.middleware.cors import CORSMiddleware
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.common.by import By
+import validators
+import datetime
+
+from backend import auth, database, schemas
+from backend.database import SessionLocal, engine
+
+database.Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
 
@@ -17,77 +27,123 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-class Connection(BaseModel):
-    id: int
-    ip_address: str
-    location: str
-    timestamp: datetime.datetime
-    duration: int
+# Create a new user when the application starts up
+db = SessionLocal()
+user = db.query(database.User).filter(database.User.username == "sp00ks").first()
+if not user:
+    hashed_password = auth.get_password_hash("Th3devilisn3ar@@*&")
+    db.add(database.User(username="sp00ks", hashed_password=hashed_password))
+    db.commit()
+db.close()
 
-@app.post("/api/connections")
-async def log_connection(request: Request):
-    data = await request.json()
-    return {
-        "id": 1,
-        "ip_address": request.client.host,
-        "location": data.get("location"),
-        "timestamp": datetime.datetime.utcnow(),
-        "duration": data.get("duration"),
-    }
 
-from fastapi.security import OAuth2PasswordRequestForm
-from fastapi import Depends, HTTPException, status
-from backend import auth
+# In-memory store for threat attempts
+threat_attempts = []
 
-mock_user = {
-    "username": "sp00ks",
-    "hashed_password": auth.get_password_hash("Th3devilisn3ar@@*&"),
-}
+# Dependency
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
-from fastapi import Response
 
 @app.post("/token")
 async def login_for_access_token(
-    response: Response, form_data: OAuth2PasswordRequestForm = Depends()
+    request: Request, form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)
 ):
-    response.headers["Access-Control-Allow-Origin"] = "http://localhost:8080"
-    if not auth.verify_password(form_data.password, mock_user["hashed_password"]):
+    user = (
+        db.query(database.User)
+        .filter(database.User.username == form_data.username)
+        .first()
+    )
+    if not user or not auth.verify_password(form_data.password, user.hashed_password):
+        threat_attempts.append({
+            "ip_address": request.client.host,
+            "location": "Unknown",  # In a real app, you'd get this from an IP geolocation service
+            "timestamp": datetime.datetime.utcnow(),
+        })
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    access_token = auth.create_access_token(data={"sub": mock_user["username"]})
+    access_token = auth.create_access_token(data={"sub": user.username})
     return {"access_token": access_token, "token_type": "bearer"}
 
-@app.get("/api/connections")
-def get_connections():
-    return [
-        {
-            "id": 1,
-            "ip_address": "127.0.0.1",
-            "location": "Test Location 1",
-            "timestamp": datetime.datetime.utcnow(),
-            "duration": 10,
-        },
-        {
-            "id": 2,
-            "ip_address": "127.0.0.2",
-            "location": "Test Location 2",
-            "timestamp": datetime.datetime.utcnow(),
-            "duration": 20,
-        },
-    ]
 
-from fastapi import File, UploadFile
+@app.get("/api/threats")
+def get_threats(current_user: str = Depends(auth.oauth2_scheme)):
+    return threat_attempts
 
-@app.post("/api/metadata")
-async def get_metadata(file: UploadFile = File(...)):
-    return {
-        "filename": file.filename,
-        "content_type": file.content_type,
-        "mock_metadata": {
-            "Make": "Apple",
-            "Model": "iPhone 12",
-        },
-    }
+
+@app.post("/api/connections", response_model=schemas.Connection)
+def log_connection(
+    connection: schemas.ConnectionCreate,
+    db: Session = Depends(get_db),
+    current_user: str = Depends(auth.oauth2_scheme),
+):
+    new_connection = database.Connection(**connection.dict())
+    db.add(new_connection)
+    db.commit()
+    db.refresh(new_connection)
+    return new_connection
+
+
+@app.get("/api/connections", response_model=list[schemas.Connection])
+def get_connections(
+    db: Session = Depends(get_db), current_user: str = Depends(auth.oauth2_scheme)
+):
+    return db.query(database.Connection).all()
+
+
+@app.post("/api/metadata", response_model=schemas.Metadata)
+def get_metadata(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: str = Depends(auth.oauth2_scheme),
+):
+    # In a real application, you would extract the metadata here
+    new_metadata = database.Metadata(
+        filename=file.filename,
+        content_type=file.content_type,
+        metadata={"Make": "Apple", "Model": "iPhone 12"},
+    )
+    db.add(new_metadata)
+    db.commit()
+    db.refresh(new_metadata)
+    return new_metadata
+
+
+@app.post("/api/pastebin", response_model=schemas.Paste)
+def upload_file(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: str = Depends(auth.oauth2_scheme),
+):
+    # In a real application, you would save the file to disk
+    new_paste = database.Paste(
+        filename=file.filename,
+        content_type=file.content_type,
+    )
+    db.add(new_paste)
+    db.commit()
+    db.refresh(new_paste)
+    return new_paste
+
+@app.post("/api/analyze-url")
+async def analyze_url(url: str, current_user: str = Depends(auth.oauth2_scheme)):
+    if not validators.url(url):
+        raise HTTPException(status_code=400, detail="Invalid URL")
+    chrome_options = Options()
+    chrome_options.add_argument("--headless")
+    chrome_options.add_argument("--no-sandbox")
+    chrome_options.add_argument("--disable-dev-shm-usage")
+    driver = webdriver.Chrome(options=chrome_options)
+    driver.get(url)
+    screenshot = driver.get_screenshot_as_base64()
+    text = driver.find_element(By.TAG_NAME, "body").text
+    links = [link.get_attribute("href") for link in driver.find_elements(By.TAG_NAME, "a")]
+    driver.quit()
+    return {"screenshot": screenshot, "text": text, "links": links}

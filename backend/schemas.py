@@ -15,6 +15,33 @@ class Connection(ConnectionBase):
     class Config:
         from_attributes = True
 
+class MetadataBase(BaseModel):
+    filename: str
+    content_type: str
+    metadata: dict
+
+class MetadataCreate(MetadataBase):
+    pass
+
+class Metadata(MetadataBase):
+    id: int
+
+    class Config:
+        from_attributes = True
+
+class PasteBase(BaseModel):
+    filename: str
+    content_type: str
+
+class PasteCreate(PasteBase):
+    pass
+
+class Paste(PasteBase):
+    id: int
+
+    class Config:
+        from_attributes = True
+
 class UserBase(BaseModel):
     username: str
 

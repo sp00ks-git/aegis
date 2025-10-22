@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Navigation from './Navigation';
+import './Connections.css';
 
 const Connections = () => {
   const [connections, setConnections] = useState([]);
@@ -16,7 +17,7 @@ const Connections = () => {
   }, []);
 
   return (
-    <div>
+    <div className="connections-container">
       <Navigation />
       <h2>Connections</h2>
       <table>
