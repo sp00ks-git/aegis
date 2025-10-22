@@ -1,0 +1,49 @@
+import React, { useState, useEffect } from 'react';
+import Navigation from './Navigation';
+import './Connections.css';
+
+const Connections = () => {
+  const [connections, setConnections] = useState([]);
+
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    fetch('http://localhost:8000/api/connections', {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    })
+      .then((res) => res.json())
+      .then((data) => setConnections(data));
+  }, []);
+
+  return (
+    <div className="connections-container">
+      <Navigation />
+      <h2>Connections</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>IP Address</th>
+            <th>Location</th>
+            <th>Timestamp</th>
+            <th>Duration</th>
+          </tr>
+        </thead>
+        <tbody>
+          {connections.map((connection) => (
+            <tr key={connection.id}>
+              <td>{connection.id}</td>
+              <td>{connection.ip_address}</td>
+              <td>{connection.location}</td>
+              <td>{connection.timestamp}</td>
+              <td>{connection.duration}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+};
+
+export default Connections;
