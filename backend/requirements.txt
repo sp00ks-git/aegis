@@ -11,3 +11,8 @@ selenium
 webdriver-manager
 beautifulsoup4
 validators
+dnspython
+python-whois
+ipapi
+phonenumbers
+email_validator

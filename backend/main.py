@@ -7,6 +7,13 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 import validators
 import datetime
+import hashlib
+import socket
+import dns.resolver
+import whois
+import requests
+import ipapi
+from email_validator import validate_email, EmailNotValidError
 
 import auth
 import database
@@ -19,6 +26,7 @@ app = FastAPI()
 
 origins = [
     "http://localhost:8080",
+    "http://localhost:3000",
 ]
 
 app.add_middleware(
@@ -149,3 +157,118 @@ async def analyze_url(url: str, current_user: str = Depends(auth.oauth2_scheme))
     links = [link.get_attribute("href") for link in driver.find_elements(By.TAG_NAME, "a")]
     driver.quit()
     return {"screenshot": screenshot, "text": text, "links": links}
+
+@app.post("/api/email-validator")
+async def email_validator(email: str, current_user: str = Depends(auth.oauth2_scheme)):
+    try:
+        validate_email(email)
+        return {"email": email, "valid": True}
+    except EmailNotValidError as e:
+        return {"email": email, "valid": False, "error": str(e)}
+
+@app.post("/api/username-searcher")
+async def username_searcher(username: str, current_user: str = Depends(auth.oauth2_scheme)):
+    sites = {
+        "instagram": f"https://www.instagram.com/{username}",
+        "facebook": f"https://www.facebook.com/{username}",
+        "twitter": f"https://www.twitter.com/{username}",
+        "github": f"https://www.github.com/{username}",
+        "linkedin": f"https://www.linkedin.com/in/{username}",
+    }
+    results = {}
+    for site, url in sites.items():
+        try:
+            response = requests.get(url)
+            if response.status_code == 200:
+                results[site] = "Found"
+            else:
+                results[site] = "Not Found"
+        except requests.exceptions.RequestException:
+            results[site] = "Error"
+    return {"username": username, "results": results}
+
+@app.post("/api/phone-number-info")
+async def phone_number_info(phone: str, current_user: str = Depends(auth.oauth2_scheme)):
+    from phonenumbers import geocoder, carrier, timezone
+    try:
+        phone_number = phonenumbers.parse(phone, None)
+        if not phonenumbers.is_valid_number(phone_number):
+            raise HTTPException(status_code=400, detail="Invalid phone number")
+        return {
+            "country": geocoder.description_for_number(phone_number, "en"),
+            "carrier": carrier.name_for_number(phone_number, "en"),
+            "timezone": timezone.time_zones_for_number(phone_number),
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/api/ip-geolocation")
+async def ip_geolocation(ip: str, current_user: str = Depends(auth.oauth2_scheme)):
+    try:
+        location = ipapi.location(ip)
+        return {"ip": ip, "location": location}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/api/whois-lookup")
+async def whois_lookup(domain: str, current_user: str = Depends(auth.oauth2_scheme)):
+    try:
+        w = whois.whois(domain)
+        return {"domain": domain, "whois": w}
+    except whois.parser.PywhoisError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/api/subdomain-finder")
+async def subdomain_finder(domain: str, current_user: str = Depends(auth.oauth2_scheme)):
+    subdomains = []
+    common_subdomains = ['www', 'mail', 'ftp', 'localhost', 'test', 'dev', 'staging', 'api', 'admin']
+    for subdomain in common_subdomains:
+        try:
+            dns.resolver.resolve(f"{subdomain}.{domain}", 'A')
+            subdomains.append(f"{subdomain}.{domain}")
+        except (dns.resolver.NoAnswer, dns.resolver.NXDOMAIN, dns.resolver.NoNameservers):
+            pass
+    return {"domain": domain, "subdomains": subdomains}
+
+@app.post("/api/dns-lookup")
+async def dns_lookup(domain: str, current_user: str = Depends(auth.oauth2_scheme)):
+    records = {}
+    for record_type in ['A', 'AAAA', 'MX', 'NS', 'TXT', 'SOA']:
+        try:
+            answers = dns.resolver.resolve(domain, record_type)
+            records[record_type] = [r.to_text() for r in answers]
+        except (dns.resolver.NoAnswer, dns.resolver.NXDOMAIN, dns.resolver.NoNameservers):
+            records[record_type] = []
+    return {"domain": domain, "records": records}
+
+@app.post("/api/port-scanner")
+async def port_scanner(host: str, current_user: str = Depends(auth.oauth2_scheme)):
+    open_ports = []
+    for port in range(1, 1025):
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        socket.setdefaulttimeout(1)
+        result = sock.connect_ex((host, port))
+        if result == 0:
+            open_ports.append(port)
+        sock.close()
+    return {"host": host, "open_ports": open_ports}
+
+@app.post("/api/http-header-viewer")
+async def http_header_viewer(url: str, current_user: str = Depends(auth.oauth2_scheme)):
+    if not validators.url(url):
+        raise HTTPException(status_code=400, detail="Invalid URL")
+    try:
+        response = requests.get(url)
+        return {"headers": dict(response.headers)}
+    except requests.exceptions.RequestException as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/api/hashing-utility")
+async def hashing_utility(text: str, current_user: str = Depends(auth.oauth2_scheme)):
+    hashes = {
+        'md5': hashlib.md5(text.encode()).hexdigest(),
+        'sha1': hashlib.sha1(text.encode()).hexdigest(),
+        'sha256': hashlib.sha256(text.encode()).hexdigest(),
+        'sha512': hashlib.sha512(text.encode()).hexdigest(),
+    }
+    return {"hashes": hashes}
