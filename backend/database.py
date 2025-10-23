@@ -1,8 +1,20 @@
 from sqlalchemy import create_engine, Column, Integer, String, DateTime
 from sqlalchemy.orm import sessionmaker, DeclarativeBase
 import datetime
+import os
 
-DATABASE_URL = "sqlite:///backend/data/connections.db"
+# Get the absolute path to the directory of the current script.
+dir_path = os.path.dirname(os.path.realpath(__file__))
+
+# Define the path for the data directory.
+data_dir_path = os.path.join(dir_path, 'data')
+
+# Create the data directory if it doesn't exist.
+os.makedirs(data_dir_path, exist_ok=True)
+
+# Define the database URL using an absolute path.
+DATABASE_URL = f"sqlite:///{os.path.join(data_dir_path, 'connections.db')}"
+
 
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -34,7 +46,7 @@ class Metadata(Base):
     id = Column(Integer, primary_key=True, index=True)
     filename = Column(String, index=True)
     content_type = Column(String)
-    metadata = Column(JSON)
+    exif_data = Column(JSON)
 
 class Paste(Base):
     __tablename__ = "pastes"

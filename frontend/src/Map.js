@@ -35,6 +35,7 @@ const Map = () => {
   };
 
   return (
+    // IMPORTANT: You need to replace 'YOUR_GOOGLE_MAPS_API_KEY' with a valid Google Maps API key for this feature to work.
     <LoadScript googleMapsApiKey="YOUR_GOOGLE_MAPS_API_KEY">
       <GoogleMap mapContainerStyle={mapStyles} zoom={2} center={defaultCenter}>
         {connections.map((connection, index) => (
